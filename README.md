@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Leaf & Form — Garden Design
 
-## Getting Started
+A minimal Next.js website for a bespoke garden design service. Visitors upload a photo of their flower bed, share preferences, and pay £25 via Stripe to receive a tailored planting plan.
 
-First, run the development server:
+## Quick start
 
 ```bash
+npm install
+cp .env.example .env.local   # fill in values (see below)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Setup checklist
 
-## Learn More
+### 1. Supabase
 
-To learn more about Next.js, take a look at the following resources:
+1. Create a project at https://supabase.com
+2. Run this SQL in the **SQL Editor**:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```sql
+create table submissions (
+  id            uuid primary key default gen_random_uuid(),
+  created_at    timestamptz default now(),
+  name          text not null,
+  email         text not null,
+  location      text not null,
+  color_prefs   text,
+  avoid_plants  text,
+  comments      text,
+  photo_url     text not null,
+  stripe_session_id text,
+  payment_status text default 'pending'
+);
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. Create a **Storage bucket** named `garden-photos` with **Public** access.
+4. Copy your project URL and keys into `.env.local`.
 
-## Deploy on Vercel
+### 2. Stripe
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Create an account at https://stripe.com
+2. Copy your **Secret key** and **Publishable key** into `.env.local`.
+3. For local webhook testing:
+   ```bash
+   stripe listen --forward-to localhost:3000/api/webhook
+   ```
+   Copy the `whsec_...` signing secret it shows you into `STRIPE_WEBHOOK_SECRET`.
+4. For production, register a webhook in the Stripe dashboard pointing to `https://your-domain.com/api/webhook`, listening for `checkout.session.completed`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 3. Admin access
+
+- Set `ADMIN_PASSWORD` to a strong password in `.env.local`.
+- Set `ADMIN_COOKIE_SECRET` to any random 32-character string.
+- Visit `/admin/login` and sign in with your password.
+
+### 4. Deploy to Vercel
+
+```bash
+npm i -g vercel
+vercel
+```
+
+Add all `.env.local` variables to your Vercel project's environment variables, then redeploy.
+
+---
+
+## Portfolio images
+
+Placeholder cards are defined in `data/portfolio.ts`. Replace the `imageUrl` values with your own work and drop the photos in `public/examples/`.
+
+---
+
+## Project structure
+
+```
+app/
+  page.tsx            Landing page
+  submit/page.tsx     Customer request form
+  success/page.tsx    Post-payment confirmation
+  admin/page.tsx      Submissions dashboard
+  admin/login/        Admin login
+  api/submit/         Upload photo + create Stripe session
+  api/webhook/        Stripe webhook (marks submissions paid)
+  api/admin/login/    Admin password → session cookie
+components/
+  SubmitForm.tsx      Drag-drop form (client)
+  AdminTable.tsx      Submissions table + detail modal (client)
+lib/
+  supabase.ts         Supabase server client
+  stripe.ts           Stripe instance (lazy)
+data/portfolio.ts     Static example work
+proxy.ts              Admin route guard (JWT cookie check)
+```

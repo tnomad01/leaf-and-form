@@ -1,0 +1,287 @@
+'use client'
+
+import { useRef, useState, DragEvent, ChangeEvent } from 'react'
+import Link from 'next/link'
+
+const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5 MB
+
+export default function SubmitForm() {
+  const formRef = useRef<HTMLFormElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [dragActive, setDragActive] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function handleFile(f: File) {
+    if (!f.type.startsWith('image/')) {
+      setError('Please upload an image file (JPEG, PNG, WebP, HEIC).')
+      return
+    }
+    if (f.size > MAX_FILE_BYTES) {
+      setError('Photo must be under 5 MB.')
+      return
+    }
+    setError(null)
+    setFile(f)
+  }
+
+  function onDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    setDragActive(false)
+    const f = e.dataTransfer.files?.[0]
+    if (f) handleFile(f)
+  }
+
+  function onFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (f) handleFile(f)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+
+    if (!file) {
+      setError('Please upload a photo of your garden.')
+      return
+    }
+
+    const form = formRef.current!
+    const data = new FormData(form)
+    data.set('photo', file, file.name)
+
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/submit', { method: 'POST', body: data })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error ?? 'Something went wrong. Please try again.')
+        return
+      }
+      window.location.href = json.url
+    } catch {
+      setError('Network error. Please check your connection and try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: '#F7F4EE' }}>
+      {/* Nav */}
+      <nav className="flex items-center px-6 py-5 max-w-3xl mx-auto">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-sm transition-opacity hover:opacity-70"
+          style={{ color: '#7C9A7E' }}
+        >
+          <span aria-hidden>←</span> Leaf &amp; Form
+        </Link>
+      </nav>
+
+      <main className="max-w-3xl mx-auto px-6 pb-24 pt-10">
+        <div className="mb-12">
+          <h1
+            className="text-4xl mb-3"
+            style={{ fontFamily: 'var(--font-playfair)', color: '#2C2C2C' }}
+          >
+            Share your garden with us
+          </h1>
+          <p style={{ color: '#5A5A5A' }}>
+            Fill in the details below and pay £25 to submit your request. We&apos;ll
+            send your bespoke planting plan within 5 working days.
+          </p>
+        </div>
+
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
+          {/* Name + Email */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <Field label="Your name" required>
+              <input
+                name="name"
+                type="text"
+                required
+                placeholder="Jane Smith"
+                className="input-field"
+              />
+            </Field>
+            <Field label="Email address" required>
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder="jane@example.com"
+                className="input-field"
+              />
+            </Field>
+          </div>
+
+          {/* Location */}
+          <Field label="Garden location" hint="Town, county or postcode" required>
+            <input
+              name="location"
+              type="text"
+              required
+              placeholder="e.g. Bath, Somerset or BA1 1AA"
+              className="input-field"
+            />
+          </Field>
+
+          {/* Photo upload */}
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: '#2C2C2C' }}>
+              Photo of your flower bed <span style={{ color: '#7C9A7E' }}>*</span>
+            </label>
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={onDrop}
+              className="rounded-xl border-2 border-dashed cursor-pointer transition-colors p-8 text-center select-none"
+              style={{
+                borderColor: dragActive ? '#7C9A7E' : '#C9B99A',
+                backgroundColor: dragActive ? '#F0F5F0' : '#F7F4EE',
+              }}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={onFileChange}
+              />
+              {file ? (
+                <div>
+                  <p className="text-sm font-medium mb-1" style={{ color: '#2C2C2C' }}>
+                    {file.name}
+                  </p>
+                  <p className="text-xs" style={{ color: '#9A9A8A' }}>
+                    {(file.size / 1024 / 1024).toFixed(1)} MB · Click to change
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm font-medium mb-1" style={{ color: '#2C2C2C' }}>
+                    Drag &amp; drop your photo here
+                  </p>
+                  <p className="text-xs" style={{ color: '#9A9A8A' }}>
+                    or click to browse · JPEG, PNG, WebP · max 5 MB
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Colour preferences */}
+          <Field
+            label="Colour preferences"
+            hint="e.g. soft whites and blues, no reds, anything goes"
+          >
+            <textarea
+              name="color_prefs"
+              rows={3}
+              placeholder="Describe the colours you love or want to avoid…"
+              className="input-field resize-none"
+            />
+          </Field>
+
+          {/* Plants to avoid */}
+          <Field
+            label="Plants or flowers to avoid"
+            hint="Allergies, dislikes or anything already in the garden"
+          >
+            <textarea
+              name="avoid_plants"
+              rows={3}
+              placeholder="e.g. no buddleia, avoid highly scented flowers…"
+              className="input-field resize-none"
+            />
+          </Field>
+
+          {/* Comments */}
+          <Field label="Anything else we should know?" hint="Optional">
+            <textarea
+              name="comments"
+              rows={3}
+              placeholder="Soil type, sun exposure, wildlife garden, low maintenance…"
+              className="input-field resize-none"
+            />
+          </Field>
+
+          {/* Error */}
+          {error && (
+            <p className="text-sm rounded-lg px-4 py-3" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+              {error}
+            </p>
+          )}
+
+          {/* Submit */}
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-sm" style={{ color: '#9A9A8A' }}>
+              Secure payment via Stripe
+            </p>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-medium transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ backgroundColor: '#2C2C2C', color: '#F7F4EE' }}
+            >
+              {submitting ? 'Redirecting…' : 'Submit & Pay £25'}
+              {!submitting && <span aria-hidden>→</span>}
+            </button>
+          </div>
+        </form>
+      </main>
+
+      <style>{`
+        .input-field {
+          width: 100%;
+          padding: 0.75rem 1rem;
+          border-radius: 0.75rem;
+          border: 1px solid #C9B99A;
+          background: #FDFCF9;
+          color: #2C2C2C;
+          font-size: 0.95rem;
+          outline: none;
+          transition: border-color 0.15s;
+          font-family: var(--font-inter), system-ui, sans-serif;
+        }
+        .input-field:focus {
+          border-color: #7C9A7E;
+          box-shadow: 0 0 0 3px rgba(124, 154, 126, 0.15);
+        }
+        .input-field::placeholder {
+          color: #B0AFA8;
+        }
+      `}</style>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  hint,
+  required,
+  children,
+}: {
+  label: string
+  hint?: string
+  required?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1.5" style={{ color: '#2C2C2C' }}>
+        {label}
+        {required && <span style={{ color: '#7C9A7E' }}> *</span>}
+        {hint && (
+          <span className="ml-2 font-normal" style={{ color: '#9A9A8A', fontSize: '0.8rem' }}>
+            {hint}
+          </span>
+        )}
+      </label>
+      {children}
+    </div>
+  )
+}
