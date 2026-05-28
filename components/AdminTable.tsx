@@ -20,272 +20,192 @@ export interface Submission {
   sent_at: string | null
 }
 
-type GenerateState =
-  | { phase: 'idle' }
-  | { phase: 'streaming'; message: string }
-  | { phase: 'error'; error: string }
+function buildChatGPTPrompt(s: Submission): string {
+  return `You are an expert garden designer and botanical consultant working in the UK.
 
-function StatusBadge({ status }: { status: string | null }) {
-  const s = status ?? 'idle'
-  const map: Record<string, { label: string; bg: string; color: string }> = {
-    idle:       { label: 'Not generated', bg: '#EDE9E1', color: '#9A9A8A' },
-    generating: { label: 'Generating…',   bg: '#FEF9C3', color: '#854D0E' },
-    ready:      { label: 'Ready to send', bg: '#DCFCE7', color: '#166534' },
-    sent:       { label: 'Sent',          bg: '#D4E5D4', color: '#2D5A2D' },
+I have a customer's flower bed with the following details:
+
+📍 Location: ${s.location}
+🎨 Colour preferences: ${s.color_prefs || 'No specific preference'}
+🚫 Plants/flowers to avoid: ${s.avoid_plants || 'None specified'}
+💬 Additional notes: ${s.comments || 'None'}
+📸 Photo of the current bed: ${s.photo_url}
+
+Please provide two outputs:
+
+---
+
+IMAGEN_PROMPT:
+Write a single paragraph (no line breaks) for a photorealistic AI image generator. Describe the bed transformed with your recommended planting scheme. Include: specific plant species names, colours in bloom, garden style, natural daylight, eye-level perspective. Be vivid and specific.
+
+---
+
+PLANT_LIST:
+Write a markdown planting guide with these sections:
+
+## Recommended Plants
+| Plant | Quantity | Why chosen |
+|---|---|---|
+
+## How to Plant
+(numbered steps)
+
+## Seasonal Care
+- **Spring:**
+- **Summer:**
+- **Autumn:**
+- **Winter:**
+
+## Local Conditions — ${s.location}
+(2–3 sentences on typical climate, soil type, frost dates, and regional considerations)
+
+---
+
+Be practical, specific, and tailored to the customer's preferences and location.`
+}
+
+function buildImagenPromptInstructions(): string {
+  return `After running the ChatGPT prompt above:
+
+1. Copy the text after "IMAGEN_PROMPT:" from the ChatGPT response
+2. Go to one of these image generators:
+   • Google Gemini → gemini.google.com → click the image icon
+   • Google ImageFX → labs.google/fx/tools/image-fx
+   • Adobe Firefly → firefly.adobe.com
+3. Paste the prompt and generate
+4. Download the image
+
+Then email the customer (${'{customer_email}'}) with:
+  • The generated garden image
+  • The PLANT_LIST from the ChatGPT response`
+}
+
+function CopyBlock({ label, text, mono = true }: { label: string; text: string; mono?: boolean }) {
+  const [copied, setCopied] = useState(false)
+
+  async function copy() {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
-  const { label, bg, color } = map[s] ?? map.idle
+
   return (
-    <span
-      className="text-xs px-2 py-0.5 rounded-full font-medium"
-      style={{ backgroundColor: bg, color }}
-    >
-      {label}
-    </span>
+    <div className="rounded-xl overflow-hidden border" style={{ borderColor: '#D4C5A9' }}>
+      <div
+        className="flex items-center justify-between px-4 py-2.5"
+        style={{ backgroundColor: '#EDE9E1' }}
+      >
+        <span className="text-xs font-medium uppercase tracking-wider" style={{ color: '#7C9A7E', letterSpacing: '0.08em' }}>
+          {label}
+        </span>
+        <button
+          onClick={copy}
+          className="text-xs px-3 py-1 rounded-full transition-colors font-medium"
+          style={{
+            backgroundColor: copied ? '#7C9A7E' : '#F7F4EE',
+            color: copied ? '#F7F4EE' : '#2C2C2C',
+          }}
+        >
+          {copied ? 'Copied ✓' : 'Copy'}
+        </button>
+      </div>
+      <pre
+        className="text-xs p-4 overflow-x-auto whitespace-pre-wrap leading-relaxed"
+        style={{
+          fontFamily: mono ? 'ui-monospace, monospace' : 'var(--font-inter), system-ui, sans-serif',
+          color: '#2C2C2C',
+          backgroundColor: '#FDFCF9',
+          margin: 0,
+        }}
+      >
+        {text}
+      </pre>
+    </div>
   )
 }
 
-function PlantListRenderer({ markdown }: { markdown: string }) {
-  const lines = markdown.split('\n')
-  const elements: React.ReactNode[] = []
-  let key = 0
+function PromptsPanel({ submission }: { submission: Submission }) {
+  const [open, setOpen] = useState(false)
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (line.startsWith('## ')) {
-      elements.push(
-        <h3 key={key++} className="text-base mt-5 mb-2 font-medium" style={{ fontFamily: 'var(--font-playfair)', color: '#2C2C2C' }}>
-          {line.slice(3)}
-        </h3>
-      )
-    } else if (line.startsWith('| ') && line.endsWith(' |')) {
-      const cells = line.split('|').slice(1, -1).map((c) => c.trim())
-      const isSeparator = cells.every((c) => /^[-:]+$/.test(c))
-      if (!isSeparator) {
-        const isHeader = i === 0 || !lines[i - 1]?.startsWith('| ')
-        elements.push(
-          <div key={key++} className="flex gap-0 text-sm" style={{ borderBottom: '1px solid #D4C5A9' }}>
-            {cells.map((c, ci) => (
-              <div
-                key={ci}
-                className="flex-1 px-3 py-1.5"
-                style={{ fontWeight: isHeader ? 600 : 400, color: '#2C2C2C', fontSize: '0.8rem' }}
-              >
-                {c}
-              </div>
-            ))}
-          </div>
-        )
-      }
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      elements.push(
-        <p key={key++} className="text-sm pl-3 mb-0.5" style={{ color: '#5A5A5A' }}>
-          · {line.slice(2).replace(/\*\*(.+?)\*\*/g, '$1')}
-        </p>
-      )
-    } else if (/^\d+\. /.test(line)) {
-      elements.push(
-        <p key={key++} className="text-sm pl-3 mb-0.5" style={{ color: '#5A5A5A' }}>
-          {line}
-        </p>
-      )
-    } else if (line.trim()) {
-      elements.push(
-        <p key={key++} className="text-sm mb-1 leading-relaxed" style={{ color: '#5A5A5A' }}>
-          {line.replace(/\*\*(.+?)\*\*/g, '$1')}
-        </p>
-      )
-    }
-  }
-
-  return <div>{elements}</div>
-}
-
-function DesignPanel({
-  submission,
-  onUpdate,
-}: {
-  submission: Submission
-  onUpdate: (updates: Partial<Submission>) => void
-}) {
-  const [genState, setGenState] = useState<GenerateState>({ phase: 'idle' })
-  const [sending, setSending] = useState(false)
-  const [sendError, setSendError] = useState<string | null>(null)
-
-  const status = submission.design_status ?? 'idle'
-
-  async function handleGenerate() {
-    setGenState({ phase: 'streaming', message: 'Starting…' })
-    onUpdate({ design_status: 'generating' })
-
-    try {
-      const res = await fetch(`/api/admin/generate/${submission.id}`, { method: 'POST' })
-      if (!res.body) throw new Error('No response stream')
-
-      const reader = res.body.getReader()
-      const dec = new TextDecoder()
-      let buf = ''
-
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        buf += dec.decode(value, { stream: true })
-        const lines = buf.split('\n')
-        buf = lines.pop() ?? ''
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const msg = JSON.parse(line)
-            if (msg.status === 'complete') {
-              onUpdate({
-                design_status: 'ready',
-                design_image_url: msg.imageUrl,
-                plant_list: msg.plantList,
-                generated_at: new Date().toISOString(),
-              })
-              setGenState({ phase: 'idle' })
-            } else if (msg.status === 'error') {
-              setGenState({ phase: 'error', error: msg.error })
-              onUpdate({ design_status: 'idle' })
-            } else {
-              setGenState({ phase: 'streaming', message: msg.status })
-            }
-          } catch {
-            // non-JSON line, skip
-          }
-        }
-      }
-    } catch (err) {
-      setGenState({ phase: 'error', error: err instanceof Error ? err.message : 'Generation failed.' })
-      onUpdate({ design_status: 'idle' })
-    }
-  }
-
-  async function handleSend() {
-    setSendError(null)
-    setSending(true)
-    try {
-      const res = await fetch(`/api/admin/send/${submission.id}`, { method: 'POST' })
-      const json = await res.json()
-      if (!res.ok) {
-        setSendError(json.error ?? 'Failed to send.')
-        return
-      }
-      onUpdate({ design_status: 'sent', sent_at: new Date().toISOString() })
-    } catch {
-      setSendError('Network error. Please try again.')
-    } finally {
-      setSending(false)
-    }
-  }
+  const chatGPTPrompt = buildChatGPTPrompt(submission)
+  const imagenInstructions = buildImagenPromptInstructions().replace(
+    '{customer_email}',
+    submission.email
+  )
 
   return (
     <div className="mt-6 pt-6" style={{ borderTop: '1px solid #EDE9E1' }}>
-      <p className="text-xs font-medium mb-4 uppercase tracking-wider" style={{ color: '#9A9A8A', letterSpacing: '0.08em' }}>
-        AI Design
-      </p>
-
-      {/* Idle — show generate button */}
-      {status === 'idle' && genState.phase === 'idle' && (
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs font-medium uppercase tracking-wider" style={{ color: '#9A9A8A', letterSpacing: '0.08em' }}>
+          AI Design Prompts
+        </p>
         <button
-          onClick={handleGenerate}
-          className="w-full py-3 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+          onClick={() => setOpen((v) => !v)}
+          className="text-xs px-4 py-2 rounded-full font-medium transition-opacity hover:opacity-80"
           style={{ backgroundColor: '#7C9A7E', color: '#F7F4EE' }}
         >
-          Generate Design
+          {open ? 'Hide prompts' : 'Generate Prompts'}
         </button>
-      )}
+      </div>
 
-      {/* Streaming progress */}
-      {genState.phase === 'streaming' && (
-        <div className="rounded-xl px-4 py-4 text-sm text-center" style={{ backgroundColor: '#EDE9E1', color: '#5A5A5A' }}>
-          <span className="inline-block animate-pulse">⟳</span>{' '}
-          {genState.message}
-        </div>
-      )}
-
-      {/* Error */}
-      {genState.phase === 'error' && (
-        <div className="space-y-3">
-          <p className="text-sm px-4 py-3 rounded-xl" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
-            {genState.error}
-          </p>
-          <button
-            onClick={handleGenerate}
-            className="w-full py-3 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
-            style={{ backgroundColor: '#7C9A7E', color: '#F7F4EE' }}
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Ready — show outputs + send button */}
-      {(status === 'ready' || status === 'sent') && submission.design_image_url && (
+      {open && (
         <div className="space-y-5">
+          {/* Step 1 */}
           <div>
-            <p className="text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: '#9A9A8A', letterSpacing: '0.08em' }}>
-              Generated Design
+            <p className="text-sm font-medium mb-1" style={{ color: '#2C2C2C' }}>
+              Step 1 — Paste into ChatGPT
             </p>
-            <img
-              src={submission.design_image_url}
-              alt="Generated garden design"
-              className="w-full rounded-xl object-cover"
-              style={{ maxHeight: '280px' }}
-            />
+            <p className="text-xs mb-3" style={{ color: '#9A9A8A' }}>
+              This generates both the plant shopping list and the image prompt for Gemini.
+            </p>
+            <CopyBlock label="ChatGPT prompt" text={chatGPTPrompt} />
           </div>
 
-          {submission.plant_list && (
-            <div className="rounded-xl p-4" style={{ backgroundColor: '#EDE9E1' }}>
-              <p className="text-xs font-medium mb-3 uppercase tracking-wider" style={{ color: '#9A9A8A', letterSpacing: '0.08em' }}>
-                Plant List &amp; Guide
-              </p>
-              <PlantListRenderer markdown={submission.plant_list} />
-            </div>
-          )}
+          {/* Step 2 */}
+          <div>
+            <p className="text-sm font-medium mb-1" style={{ color: '#2C2C2C' }}>
+              Step 2 — Generate the garden image
+            </p>
+            <p className="text-xs mb-3" style={{ color: '#9A9A8A' }}>
+              Copy the IMAGEN_PROMPT section from ChatGPT's response and follow the steps below.
+            </p>
+            <CopyBlock label="Instructions" text={imagenInstructions} mono={false} />
+          </div>
 
-          {status === 'ready' && (
-            <div>
-              {sendError && (
-                <p className="text-sm px-3 py-2 rounded-lg mb-3" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
-                  {sendError}
-                </p>
-              )}
-              <button
-                onClick={handleSend}
-                disabled={sending}
-                className="w-full py-3 rounded-xl text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: '#2C2C2C', color: '#F7F4EE' }}
-              >
-                {sending ? 'Sending…' : `Send to ${submission.email}`}
-              </button>
-            </div>
-          )}
-
-          {status === 'sent' && submission.sent_at && (
-            <div className="text-center py-3 rounded-xl text-sm" style={{ backgroundColor: '#D4E5D4', color: '#2D5A2D' }}>
-              ✓ Sent on{' '}
-              {new Date(submission.sent_at).toLocaleDateString('en-GB', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
-            </div>
-          )}
+          {/* Reminder */}
+          <div
+            className="rounded-xl px-4 py-3 text-xs leading-relaxed"
+            style={{ backgroundColor: '#EDE9E1', color: '#5A5A5A' }}
+          >
+            <strong style={{ color: '#2C2C2C' }}>When you're ready to send:</strong> email{' '}
+            <a href={`mailto:${submission.email}`} style={{ color: '#7C9A7E' }}>
+              {submission.email}
+            </a>{' '}
+            directly with the generated image attached and the plant list pasted in.
+            API automation can be switched on later without changing anything else.
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-export default function AdminTable({ submissions: initialSubmissions }: { submissions: Submission[] }) {
-  const [submissions, setSubmissions] = useState(initialSubmissions)
-  const [selected, setSelected] = useState<Submission | null>(null)
-
-  function updateSubmission(id: string, updates: Partial<Submission>) {
-    setSubmissions((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)))
-    setSelected((prev) => (prev?.id === id ? { ...prev, ...updates } : prev))
+function StatusBadge({ status }: { status: string | null }) {
+  const s = status ?? 'idle'
+  const map: Record<string, { label: string; bg: string; color: string }> = {
+    idle: { label: 'Awaiting design', bg: '#EDE9E1', color: '#9A9A8A' },
+    sent: { label: 'Sent',           bg: '#D4E5D4', color: '#2D5A2D' },
   }
+  const { label, bg, color } = map[s] ?? map.idle
+  return (
+    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: bg, color }}>
+      {label}
+    </span>
+  )
+}
+
+export default function AdminTable({ submissions }: { submissions: Submission[] }) {
+  const [selected, setSelected] = useState<Submission | null>(null)
 
   if (submissions.length === 0) {
     return (
@@ -302,7 +222,7 @@ export default function AdminTable({ submissions: initialSubmissions }: { submis
         <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: '#EDE9E1', borderBottom: '1px solid #D4C5A9' }}>
-              {['Date', 'Name', 'Email', 'Location', 'Photo', 'Design'].map((h) => (
+              {['Date', 'Name', 'Email', 'Location', 'Photo'].map((h) => (
                 <th
                   key={h}
                   className="px-4 py-3 text-left font-medium text-xs uppercase tracking-wider"
@@ -325,7 +245,7 @@ export default function AdminTable({ submissions: initialSubmissions }: { submis
                   {new Date(s.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </td>
                 <td className="px-4 py-3 font-medium" style={{ color: '#2C2C2C' }}>{s.name}</td>
-                <td className="px-4 py-3" style={{ color: '#5A5A5A' }}>
+                <td className="px-4 py-3">
                   <a href={`mailto:${s.email}`} onClick={(e) => e.stopPropagation()} className="hover:underline" style={{ color: '#7C9A7E' }}>
                     {s.email}
                   </a>
@@ -334,16 +254,12 @@ export default function AdminTable({ submissions: initialSubmissions }: { submis
                 <td className="px-4 py-3">
                   <img src={s.photo_url} alt="" className="w-12 h-10 object-cover rounded-lg" />
                 </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={s.design_status} />
-                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* Detail modal */}
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -379,15 +295,11 @@ export default function AdminTable({ submissions: initialSubmissions }: { submis
               </Detail>
               <Detail label="Location">{selected.location}</Detail>
             </div>
-
             {selected.color_prefs && <Detail label="Colour preferences" block>{selected.color_prefs}</Detail>}
             {selected.avoid_plants && <Detail label="Plants to avoid" block>{selected.avoid_plants}</Detail>}
             {selected.comments && <Detail label="Additional comments" block>{selected.comments}</Detail>}
 
-            <DesignPanel
-              submission={selected}
-              onUpdate={(updates) => updateSubmission(selected.id, updates)}
-            />
+            <PromptsPanel submission={selected} />
           </div>
         </div>
       )}
