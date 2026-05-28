@@ -54,12 +54,18 @@ export default function SubmitForm() {
     setSubmitting(true)
     try {
       const res = await fetch('/api/submit', { method: 'POST', body: data })
-      const json = await res.json()
+      let json: { url?: string; error?: string } = {}
+      try {
+        json = await res.json()
+      } catch {
+        setError(`Server error (${res.status}). Check Vercel function logs for details.`)
+        return
+      }
       if (!res.ok) {
         setError(json.error ?? 'Something went wrong. Please try again.')
         return
       }
-      window.location.href = json.url
+      window.location.href = json.url!
     } catch {
       setError('Network error. Please check your connection and try again.')
     } finally {

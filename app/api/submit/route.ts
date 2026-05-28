@@ -2,6 +2,18 @@ import { createSupabaseServerClient } from '@/lib/supabase'
 import { getStripe } from '@/lib/stripe'
 
 export async function POST(request: Request) {
+  try {
+    return await handleSubmit(request)
+  } catch (err) {
+    console.error('Unhandled error in /api/submit:', err)
+    return Response.json(
+      { error: `Internal server error: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 500 }
+    )
+  }
+}
+
+async function handleSubmit(request: Request) {
   let formData: FormData
   try {
     formData = await request.formData()
@@ -30,6 +42,14 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Photo must be under 5 MB.' }, { status: 400 })
   }
 
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return Response.json({ error: 'Server not configured: missing Supabase credentials.' }, { status: 500 })
+  }
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return Response.json({ error: 'Server not configured: missing Stripe credentials.' }, { status: 500 })
+  }
+
   const supabase = createSupabaseServerClient()
 
   // Upload photo to Supabase Storage
@@ -43,7 +63,7 @@ export async function POST(request: Request) {
 
   if (uploadError) {
     console.error('Storage upload error:', uploadError)
-    return Response.json({ error: 'Failed to upload photo. Please try again.' }, { status: 500 })
+    return Response.json({ error: `Photo upload failed: ${uploadError.message}` }, { status: 500 })
   }
 
   const { data: { publicUrl } } = supabase.storage
@@ -68,7 +88,7 @@ export async function POST(request: Request) {
 
   if (dbError || !submission) {
     console.error('DB insert error:', dbError)
-    return Response.json({ error: 'Failed to save your request. Please try again.' }, { status: 500 })
+    return Response.json({ error: `Database error: ${dbError?.message ?? 'unknown'}` }, { status: 500 })
   }
 
   // Create Stripe Checkout session
@@ -84,7 +104,7 @@ export async function POST(request: Request) {
             name: 'Garden Design Request',
             description: 'Bespoke planting plan — Leaf & Form',
           },
-          unit_amount: 2500, // £25.00 in pence
+          unit_amount: 2500,
         },
         quantity: 1,
       },
@@ -96,7 +116,6 @@ export async function POST(request: Request) {
     cancel_url: `${baseUrl}/submit`,
   })
 
-  // Store the Stripe session ID
   await supabase
     .from('submissions')
     .update({ stripe_session_id: session.id })
