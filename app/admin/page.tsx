@@ -44,6 +44,13 @@ export default async function AdminPage() {
               {submissions.length} paid {submissions.length === 1 ? 'submission' : 'submissions'}
             </span>
             <Link
+              href="/admin/portfolio"
+              className="text-sm transition-opacity hover:opacity-70"
+              style={{ color: '#7C9A7E' }}
+            >
+              Portfolio
+            </Link>
+            <Link
               href="/"
               className="text-sm transition-opacity hover:opacity-70"
               style={{ color: '#7C9A7E' }}

@@ -1,7 +1,35 @@
 import Link from 'next/link'
-import { portfolio } from '@/data/portfolio'
+import { createSupabaseServerClient } from '@/lib/supabase'
+import PortfolioCard from '@/components/PortfolioCard'
 
-export default function HomePage() {
+export const dynamic = 'force-dynamic'
+
+interface PortfolioItem {
+  id: string
+  title: string
+  location: string
+  description: string | null
+  blueprint_url: string | null
+  final_url: string | null
+}
+
+async function getPortfolio(): Promise<PortfolioItem[]> {
+  try {
+    const supabase = createSupabaseServerClient()
+    const { data } = await supabase
+      .from('portfolio')
+      .select('id, title, location, description, blueprint_url, final_url')
+      .eq('published', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+    return data ?? []
+  } catch {
+    return []
+  }
+}
+
+export default async function HomePage() {
+  const portfolio = await getPortfolio()
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F7F4EE', color: '#2C2C2C' }}>
       {/* Nav */}
@@ -95,48 +123,35 @@ export default function HomePage() {
       {/* Portfolio */}
       <section className="max-w-6xl mx-auto px-6 py-24">
         <h2
-          className="text-3xl mb-4 text-center"
+          className="text-3xl mb-2 text-center"
           style={{ fontFamily: 'var(--font-playfair)', color: '#2C2C2C' }}
         >
           Our Work
         </h2>
-        <p className="text-center text-sm mb-14" style={{ color: '#9A9A8A' }}>
-          A selection of recent planting designs
+        <p className="text-center text-sm mb-2" style={{ color: '#7C9A7E', letterSpacing: '0.06em' }}>
+          Blueprint → Garden
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {portfolio.map((item) => (
-            <article
-              key={item.id}
-              className="rounded-2xl overflow-hidden"
-              style={{ backgroundColor: '#EDE9E1' }}
-            >
-              <div className="aspect-[4/3] overflow-hidden">
-                <img
-                  src={item.imageUrl}
-                  alt={item.title}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </div>
-              <div className="p-5">
-                <div className="flex items-baseline justify-between mb-2">
-                  <h3
-                    className="text-lg"
-                    style={{ fontFamily: 'var(--font-playfair)', color: '#2C2C2C' }}
-                  >
-                    {item.title}
-                  </h3>
-                  <span className="text-xs ml-2 shrink-0" style={{ color: '#9A9A8A' }}>
-                    {item.location}
-                  </span>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: '#5A5A5A' }}>
-                  {item.description}
-                </p>
-              </div>
-            </article>
-          ))}
-        </div>
+        <p className="text-center text-sm mb-14" style={{ color: '#9A9A8A' }}>
+          Each card shows the original design plan. Hover to reveal the finished garden.
+        </p>
+        {portfolio.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {portfolio.map((item) => (
+              <PortfolioCard
+                key={item.id}
+                title={item.title}
+                location={item.location}
+                description={item.description}
+                blueprintUrl={item.blueprint_url}
+                finalUrl={item.final_url}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-sm" style={{ color: '#9A9A8A' }}>
+            Portfolio coming soon.
+          </p>
+        )}
       </section>
 
       {/* CTA Banner */}
