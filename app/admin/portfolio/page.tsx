@@ -14,13 +14,20 @@ function parseImportText(raw: string): ParsedRow[] {
 
   const rows: ParsedRow[] = []
   for (const line of lines) {
+    // Skip box-drawing border/separator lines (┌┐└┘├┤┬┴┼─)
+    if (/[┌┐└┘├┤┬┴┼─━]/.test(line)) continue
     // Skip markdown separator rows like |---|---|
     if (/^\|[\s\-|:]+\|?$/.test(line)) continue
 
     let parts: string[]
 
-    if (line.startsWith('|') || line.endsWith('|')) {
-      // Markdown table row: | 1 | Title | Location | Desc |
+    if (line.includes('│')) {
+      // Unicode box-drawing table: │ 1 │ Title │ Location │ Desc │
+      parts = line.split('│').map(p => p.trim()).filter((p, i, arr) =>
+        !(i === 0 && p === '') && !(i === arr.length - 1 && p === '')
+      )
+    } else if (line.startsWith('|') || line.endsWith('|')) {
+      // Markdown table: | 1 | Title | Location | Desc |
       parts = line.split('|').map(p => p.trim()).filter((p, i, arr) =>
         !(i === 0 && p === '') && !(i === arr.length - 1 && p === '')
       )
@@ -39,7 +46,7 @@ function parseImportText(raw: string): ParsedRow[] {
     if (!first || ['title', '#', 'no', 'no.', 'name'].includes(first)) continue
     if (/^[-:]+$/.test(first)) continue
 
-    // If first column is a plain number, skip it (row numbers)
+    // Skip if first column is a row number
     let offset = 0
     if (/^\d+$/.test(parts[0])) offset = 1
 
