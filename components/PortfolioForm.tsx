@@ -216,21 +216,21 @@ export default function PortfolioForm({ item, onClose, onSaved }: Props) {
               name="description"
               rows={3}
               defaultValue={item?.description ?? ''}
-              placeholder="A short description of the design…"
+              placeholder="Planting notes — species, colours, seasonal interest…"
               className="pf-input resize-none"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <ImageUploadField
-              label="Blueprint / design plan"
+              label="Main image — overview (front)"
               fieldName="blueprint"
               currentUrl={item?.blueprint_url ?? null}
               file={blueprintFile}
               onFile={setBlueprintFile}
             />
             <ImageUploadField
-              label="Final garden photo"
+              label="Detailed blueprint (back)"
               fieldName="final"
               currentUrl={item?.final_url ?? null}
               file={finalFile}

@@ -117,20 +117,20 @@ export default function AdminPortfolioPage() {
                   <div className="aspect-[4/3] overflow-hidden" style={{ backgroundColor: '#7C9A7E' }}>
                     {item.blueprint_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.blueprint_url} alt="Blueprint" className="w-full h-full object-cover" />
+                      <img src={item.blueprint_url} alt="Overview" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-white text-xs opacity-50">Blueprint</span>
+                        <span className="text-white text-xs opacity-50">Overview</span>
                       </div>
                     )}
                   </div>
-                  <div className="aspect-[4/3] overflow-hidden" style={{ backgroundColor: '#4A6B4C' }}>
+                  <div className="aspect-[4/3] overflow-hidden" style={{ backgroundColor: '#4A5E4B' }}>
                     {item.final_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.final_url} alt="Final" className="w-full h-full object-cover" />
+                      <img src={item.final_url} alt="Detail plan" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-white text-xs opacity-50">Final</span>
+                        <span className="text-white text-xs opacity-50">Detail</span>
                       </div>
                     )}
                   </div>

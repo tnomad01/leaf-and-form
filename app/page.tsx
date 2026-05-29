@@ -129,10 +129,10 @@ export default async function HomePage() {
           Our Work
         </h2>
         <p className="text-center text-sm mb-2" style={{ color: '#7C9A7E', letterSpacing: '0.06em' }}>
-          Blueprint → Garden
+          Overview → Planting Plan
         </p>
         <p className="text-center text-sm mb-14" style={{ color: '#9A9A8A' }}>
-          Each card shows the original design plan. Hover to reveal the finished garden.
+          Each card shows the garden overview. Hover to reveal the detailed planting plan.
         </p>
         {portfolio.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
