@@ -11,13 +11,46 @@ interface ParsedRow { title: string; location: string; description: string }
 function parseImportText(raw: string): ParsedRow[] {
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
   if (!lines.length) return []
-  const sep = lines[0].includes('\t') ? '\t' : '|'
+
   const rows: ParsedRow[] = []
   for (const line of lines) {
-    const parts = line.split(sep).map(p => p.trim())
-    const title = parts[0] || ''
-    if (!title || title.toLowerCase() === 'title') continue
-    rows.push({ title, location: parts[1] || '', description: parts[2] || '' })
+    // Skip markdown separator rows like |---|---|
+    if (/^\|[\s\-|:]+\|?$/.test(line)) continue
+
+    let parts: string[]
+
+    if (line.startsWith('|') || line.endsWith('|')) {
+      // Markdown table row: | 1 | Title | Location | Desc |
+      parts = line.split('|').map(p => p.trim()).filter((p, i, arr) =>
+        !(i === 0 && p === '') && !(i === arr.length - 1 && p === '')
+      )
+    } else if (line.includes('\t')) {
+      parts = line.split('\t').map(p => p.trim())
+    } else if (line.includes('|')) {
+      parts = line.split('|').map(p => p.trim())
+    } else {
+      parts = [line.trim()]
+    }
+
+    if (!parts.length) continue
+
+    // Skip header rows
+    const first = parts[0].toLowerCase()
+    if (!first || ['title', '#', 'no', 'no.', 'name'].includes(first)) continue
+    if (/^[-:]+$/.test(first)) continue
+
+    // If first column is a plain number, skip it (row numbers)
+    let offset = 0
+    if (/^\d+$/.test(parts[0])) offset = 1
+
+    const title = parts[offset] || ''
+    if (!title) continue
+
+    rows.push({
+      title,
+      location: parts[offset + 1] || '',
+      description: parts[offset + 2] || '',
+    })
   }
   return rows
 }
