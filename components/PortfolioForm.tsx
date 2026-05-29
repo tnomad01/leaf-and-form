@@ -2,6 +2,35 @@
 
 import { useRef, useState, DragEvent, ChangeEvent } from 'react'
 
+const MAX_DIMENSION = 1600
+const JPEG_QUALITY = 0.85
+
+async function compressImage(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        if (width > height) { height = Math.round((height / width) * MAX_DIMENSION); width = MAX_DIMENSION }
+        else { width = Math.round((width / height) * MAX_DIMENSION); height = MAX_DIMENSION }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => resolve(blob ? new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }) : file),
+        'image/jpeg',
+        JPEG_QUALITY
+      )
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+    img.src = url
+  })
+}
+
 export interface PortfolioItem {
   id: string
   title: string
@@ -130,11 +159,19 @@ export default function PortfolioForm({ item, onClose, onSaved }: Props) {
     const form = e.currentTarget
     const fd = new FormData(form)
 
-    if (blueprintFile) fd.set('blueprint', blueprintFile, blueprintFile.name)
-    else fd.delete('blueprint')
+    if (blueprintFile) {
+      const compressed = await compressImage(blueprintFile)
+      fd.set('blueprint', compressed, compressed.name)
+    } else {
+      fd.delete('blueprint')
+    }
 
-    if (finalFile) fd.set('final', finalFile, finalFile.name)
-    else fd.delete('final')
+    if (finalFile) {
+      const compressed = await compressImage(finalFile)
+      fd.set('final', compressed, compressed.name)
+    } else {
+      fd.delete('final')
+    }
 
     try {
       const url = item ? `/api/admin/portfolio/${item.id}` : '/api/admin/portfolio'
