@@ -8,7 +8,7 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfa
 export const metadata: Metadata = {
   title: 'Leaf & Form — Garden Design',
   description:
-    'Bespoke garden planting plans from expert designers. Upload a photo of your flower bed and receive a tailored design for £25.',
+    'Bespoke garden planting plans from expert designers. Upload a photo of your flower bed and choose a plan from £10 — blueprint, photo or full planting guide.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

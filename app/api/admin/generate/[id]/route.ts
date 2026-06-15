@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { runGenerationPipeline } from '@/lib/pipeline'
+import { getTier } from '@/lib/tiers'
 
 export const maxDuration = 60
 
@@ -23,7 +24,7 @@ export async function POST(
         // Load submission
         const { data: submission, error } = await supabase
           .from('submissions')
-          .select('id, name, location, color_prefs, avoid_plants, comments, photo_url, payment_status')
+          .select('id, name, location, color_prefs, avoid_plants, comments, photo_url, payment_status, tier')
           .eq('id', id)
           .single()
 
@@ -39,6 +40,13 @@ export async function POST(
           return
         }
 
+        const tier = getTier(submission.tier)
+        if (!tier) {
+          controller.enqueue(line({ status: 'error', error: `Unknown tier: ${submission.tier}` }))
+          controller.close()
+          return
+        }
+
         // Mark as generating
         await supabase
           .from('submissions')
@@ -46,7 +54,7 @@ export async function POST(
           .eq('id', id)
 
         // Run pipeline with streaming status updates
-        const result = await runGenerationPipeline(submission, (msg) => {
+        const result = await runGenerationPipeline({ ...submission, tier: tier.id }, (msg) => {
           controller.enqueue(line({ status: msg }))
         })
 
@@ -55,6 +63,8 @@ export async function POST(
           .from('submissions')
           .update({
             design_status: 'ready',
+            blueprint_prompt: result.blueprintPrompt,
+            blueprint_image_url: result.blueprintImageUrl,
             design_prompt: result.imagenPrompt,
             design_image_url: result.imageUrl,
             plant_list: result.plantList,
@@ -63,7 +73,12 @@ export async function POST(
           .eq('id', id)
 
         controller.enqueue(
-          line({ status: 'complete', imageUrl: result.imageUrl, plantList: result.plantList })
+          line({
+            status: 'complete',
+            blueprintImageUrl: result.blueprintImageUrl,
+            imageUrl: result.imageUrl,
+            plantList: result.plantList,
+          })
         )
       } catch (err) {
         console.error('Generation pipeline error:', err)

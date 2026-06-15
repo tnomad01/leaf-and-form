@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { getStripe } from '@/lib/stripe'
+import { getTier } from '@/lib/tiers'
 
 export async function POST(request: Request) {
   try {
@@ -28,9 +29,15 @@ async function handleSubmit(request: Request) {
   const avoidPlants = (formData.get('avoid_plants') as string)?.trim() || null
   const comments = (formData.get('comments') as string)?.trim() || null
   const photo = formData.get('photo') as File | null
+  const tierId = (formData.get('tier') as string)?.trim()
 
   if (!name || !email || !location || !photo) {
     return Response.json({ error: 'Name, email, location and photo are required.' }, { status: 400 })
+  }
+
+  const tier = getTier(tierId)
+  if (!tier) {
+    return Response.json({ error: 'Please choose a valid plan.' }, { status: 400 })
   }
 
   if (!photo.type.startsWith('image/')) {
@@ -82,6 +89,8 @@ async function handleSubmit(request: Request) {
       comments,
       photo_url: publicUrl,
       payment_status: 'pending',
+      tier: tier.id,
+      price_pence: tier.pricePence,
     })
     .select('id')
     .single()
@@ -101,17 +110,17 @@ async function handleSubmit(request: Request) {
         price_data: {
           currency: 'gbp',
           product_data: {
-            name: 'Garden Design Request',
-            description: 'Bespoke planting plan — Leaf & Form',
+            name: tier.stripeProductName,
+            description: tier.stripeProductDescription,
           },
-          unit_amount: 2500,
+          unit_amount: tier.pricePence,
         },
         quantity: 1,
       },
     ],
     mode: 'payment',
     customer_email: email,
-    metadata: { submission_id: submission.id },
+    metadata: { submission_id: submission.id, tier: tier.id },
     success_url: `${baseUrl}/success`,
     cancel_url: `${baseUrl}/submit`,
   })

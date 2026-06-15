@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { Resend } from 'resend'
+import { getTier } from '@/lib/tiers'
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY!)
@@ -51,8 +52,31 @@ export async function POST(
     return Response.json({ error: 'Email service not configured.' }, { status: 500 })
   }
 
+  const tier = getTier(submission.tier)
+  if (!tier) {
+    return Response.json({ error: `Unknown tier on submission: ${submission.tier}` }, { status: 500 })
+  }
+
   const resend = getResend()
-  const plantListHtml = markdownToHtml(submission.plant_list ?? '')
+
+  const blueprintBlock = submission.blueprint_image_url
+    ? `
+    <p style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#9A9A8A;margin:0 0 8px">Your Planting Blueprint</p>
+    <img src="${submission.blueprint_image_url}" alt="Your bespoke planting blueprint" style="width:100%;border-radius:12px;display:block;margin-bottom:32px">`
+    : ''
+
+  const photoBlock = tier.deliverables.photo && submission.design_image_url
+    ? `
+    <p style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#9A9A8A;margin:0 0 8px">Garden Visualisation</p>
+    <img src="${submission.design_image_url}" alt="Your bespoke garden design" style="width:100%;border-radius:12px;display:block;margin-bottom:32px">`
+    : ''
+
+  const plantListBlock = tier.deliverables.plantList && submission.plant_list
+    ? `
+    <div style="background:#EDE9E1;border-radius:12px;padding:24px 28px;margin-bottom:32px">
+      ${markdownToHtml(submission.plant_list)}
+    </div>`
+    : ''
 
   const html = `
 <!DOCTYPE html>
@@ -62,18 +86,11 @@ export async function POST(
   <div style="max-width:600px;margin:0 auto;padding:40px 20px">
 
     <p style="font-size:22px;font-family:Georgia,serif;color:#2C2C2C;margin:0 0 4px">Leaf &amp; Form</p>
-    <p style="color:#7C9A7E;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 32px">Garden Design</p>
+    <p style="color:#7C9A7E;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 32px">Garden Design · ${tier.label}</p>
 
     <h1 style="font-family:Georgia,serif;font-size:28px;color:#2C2C2C;margin:0 0 12px">Your garden design is ready</h1>
-    <p style="color:#5A5A5A;margin:0 0 32px">Hi ${submission.name}, here is your bespoke planting plan for your garden in <strong>${submission.location}</strong>.</p>
-
-    <p style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#9A9A8A;margin:0 0 8px">Your Garden Visualisation</p>
-    <img src="${submission.design_image_url}" alt="Your bespoke garden design" style="width:100%;border-radius:12px;display:block;margin-bottom:32px">
-
-    <div style="background:#EDE9E1;border-radius:12px;padding:24px 28px;margin-bottom:32px">
-      ${plantListHtml}
-    </div>
-
+    <p style="color:#5A5A5A;margin:0 0 32px">Hi ${submission.name}, here is your bespoke design for your garden in <strong>${submission.location}</strong>.</p>
+${blueprintBlock}${photoBlock}${plantListBlock}
     <p style="color:#5A5A5A;font-size:14px;margin:0 0 8px">Questions about your design? Reply to this email and we will be happy to help.</p>
     <p style="color:#9A9A8A;font-size:12px;margin:0">Leaf &amp; Form · <a href="mailto:${process.env.RESEND_FROM_EMAIL}" style="color:#7C9A7E">${process.env.RESEND_FROM_EMAIL}</a></p>
 

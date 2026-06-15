@@ -2,6 +2,7 @@
 
 import { useRef, useState, DragEvent, ChangeEvent } from 'react'
 import Link from 'next/link'
+import { TIERS, TIER_ORDER, DEFAULT_TIER, type TierId } from '@/lib/tiers'
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024 // 20 MB
 
@@ -12,6 +13,8 @@ export default function SubmitForm() {
   const [dragActive, setDragActive] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [tierId, setTierId] = useState<TierId>(DEFAULT_TIER)
+  const tier = TIERS[tierId]
 
   function handleFile(f: File) {
     if (!f.type.startsWith('image/')) {
@@ -50,6 +53,7 @@ export default function SubmitForm() {
     const form = formRef.current!
     const data = new FormData(form)
     data.set('photo', file, file.name)
+    data.set('tier', tierId)
 
     setSubmitting(true)
     try {
@@ -95,12 +99,54 @@ export default function SubmitForm() {
             Share your garden with us
           </h1>
           <p style={{ color: '#5A5A5A' }}>
-            Fill in the details below and pay £25 to submit your request. We&apos;ll
-            send your bespoke planting plan within 5 working days.
+            Choose a plan, share your garden details, and we&apos;ll send your
+            bespoke design within 5 working days.
           </p>
         </div>
 
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
+          {/* Tier selector */}
+          <div>
+            <label className="block text-sm font-medium mb-3" style={{ color: '#2C2C2C' }}>
+              Choose your plan <span style={{ color: '#7C9A7E' }}>*</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {TIER_ORDER.map((id) => {
+                const t = TIERS[id]
+                const selected = id === tierId
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setTierId(id)}
+                    className="text-left rounded-xl p-4 transition-colors"
+                    style={{
+                      backgroundColor: selected ? '#F0F5F0' : '#FDFCF9',
+                      border: `2px solid ${selected ? '#7C9A7E' : '#C9B99A'}`,
+                    }}
+                  >
+                    <div className="flex items-baseline justify-between mb-2">
+                      <span className="font-medium text-sm" style={{ color: '#2C2C2C' }}>
+                        {t.label}
+                      </span>
+                      <span
+                        className="font-medium"
+                        style={{ color: selected ? '#7C9A7E' : '#2C2C2C' }}
+                      >
+                        {t.priceLabel}
+                      </span>
+                    </div>
+                    <ul className="text-xs space-y-1" style={{ color: '#5A5A5A' }}>
+                      {t.bullets.map((b) => (
+                        <li key={b}>· {b}</li>
+                      ))}
+                    </ul>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Name + Email */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <Field label="Your name" required>
@@ -233,7 +279,7 @@ export default function SubmitForm() {
               className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-medium transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: '#2C2C2C', color: '#F7F4EE' }}
             >
-              {submitting ? 'Redirecting…' : 'Submit & Pay £25'}
+              {submitting ? 'Redirecting…' : `Submit & Pay ${tier.priceLabel}`}
               {!submitting && <span aria-hidden>→</span>}
             </button>
           </div>

@@ -1,6 +1,6 @@
 # Leaf & Form — Garden Design
 
-A minimal Next.js website for a bespoke garden design service. Visitors upload a photo of their flower bed, share preferences, and pay £25 via Stripe to receive a tailored planting plan.
+A minimal Next.js website for a bespoke garden design service. Visitors upload a photo of their flower bed, share preferences, and choose one of three plans via Stripe — Blueprint (£10), Blueprint + Photo (£25), or Full Plan (£75).
 
 ## Quick start
 

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import PortfolioCard from '@/components/PortfolioCard'
+import { TIERS, TIER_ORDER } from '@/lib/tiers'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,7 +76,7 @@ export default async function HomePage() {
           Submit Your Garden <span aria-hidden>→</span>
         </Link>
         <p className="mt-4 text-sm" style={{ color: '#9A9A8A' }}>
-          One-off fee of £25 · No subscription · Designs delivered within 5 days
+          From £10 · No subscription · Designs delivered within 5 days
         </p>
       </section>
 
@@ -112,6 +113,76 @@ export default async function HomePage() {
               </p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Divider */}
+      <div className="max-w-6xl mx-auto px-6">
+        <hr style={{ borderColor: '#D4C5A9' }} />
+      </div>
+
+      {/* Pricing */}
+      <section className="max-w-6xl mx-auto px-6 py-24">
+        <h2
+          className="text-3xl mb-3 text-center"
+          style={{ fontFamily: 'var(--font-playfair)', color: '#2C2C2C' }}
+        >
+          Choose your plan
+        </h2>
+        <p className="text-center text-sm mb-14" style={{ color: '#9A9A8A' }}>
+          Three options, one bespoke service. Pick the level of detail you need.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {TIER_ORDER.map((id) => {
+            const t = TIERS[id]
+            const featured = id === 'photo'
+            return (
+              <div
+                key={id}
+                className="rounded-2xl p-8 flex flex-col"
+                style={{
+                  backgroundColor: featured ? '#F0F5F0' : '#FDFCF9',
+                  border: `1px solid ${featured ? '#7C9A7E' : '#D4C5A9'}`,
+                }}
+              >
+                <div className="flex items-baseline justify-between mb-2">
+                  <h3
+                    className="text-xl"
+                    style={{ fontFamily: 'var(--font-playfair)', color: '#2C2C2C' }}
+                  >
+                    {t.label}
+                  </h3>
+                  <span
+                    className="text-2xl"
+                    style={{ fontFamily: 'var(--font-playfair)', color: '#2C2C2C' }}
+                  >
+                    {t.priceLabel}
+                  </span>
+                </div>
+                <p className="text-sm mb-6" style={{ color: '#7C9A7E' }}>
+                  {t.tagline}
+                </p>
+                <ul className="text-sm space-y-2 mb-8 flex-1" style={{ color: '#5A5A5A' }}>
+                  {t.bullets.map((b) => (
+                    <li key={b} className="flex gap-2">
+                      <span aria-hidden style={{ color: '#7C9A7E' }}>·</span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/submit"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-medium transition-opacity hover:opacity-90"
+                  style={{
+                    backgroundColor: featured ? '#7C9A7E' : '#2C2C2C',
+                    color: '#F7F4EE',
+                  }}
+                >
+                  Choose {t.shortLabel} <span aria-hidden>→</span>
+                </Link>
+              </div>
+            )
+          })}
         </div>
       </section>
 
@@ -174,7 +245,7 @@ export default async function HomePage() {
             className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-medium transition-opacity hover:opacity-90"
             style={{ backgroundColor: '#F7F4EE', color: '#2C2C2C' }}
           >
-            Get started for £25 <span aria-hidden>→</span>
+            Get started from £10 <span aria-hidden>→</span>
           </Link>
         </div>
       </section>
@@ -215,6 +286,6 @@ const steps = [
   {
     title: 'Receive your design',
     description:
-      'Within 5 working days you will receive a tailored planting plan with species names, suggested placement and seasonal care notes.',
+      'Within 5 working days you will receive your design materials — from a planting blueprint to a complete planting guide, depending on the plan you choose.',
   },
 ]

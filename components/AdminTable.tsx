@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { getTier, type TierId } from '@/lib/tiers'
 
 export interface Submission {
   id: string
@@ -18,6 +19,8 @@ export interface Submission {
   plant_list: string | null
   generated_at: string | null
   sent_at: string | null
+  tier: TierId | null
+  price_pence: number | null
 }
 
 function buildChatGPTPrompt(s: Submission): string {
@@ -222,7 +225,7 @@ export default function AdminTable({ submissions }: { submissions: Submission[] 
         <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: '#EDE9E1', borderBottom: '1px solid #D4C5A9' }}>
-              {['Date', 'Name', 'Email', 'Location', 'Photo'].map((h) => (
+              {['Date', 'Name', 'Email', 'Location', 'Plan', 'Photo'].map((h) => (
                 <th
                   key={h}
                   className="px-4 py-3 text-left font-medium text-xs uppercase tracking-wider"
@@ -251,6 +254,19 @@ export default function AdminTable({ submissions }: { submissions: Submission[] 
                   </a>
                 </td>
                 <td className="px-4 py-3" style={{ color: '#5A5A5A' }}>{s.location}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {(() => {
+                    const t = getTier(s.tier)
+                    return (
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full font-medium"
+                        style={{ backgroundColor: '#EDE9E1', color: '#2C2C2C' }}
+                      >
+                        {t ? `${t.shortLabel} · ${t.priceLabel}` : '—'}
+                      </span>
+                    )
+                  })()}
+                </td>
                 <td className="px-4 py-3">
                   <img src={s.photo_url} alt="" className="w-12 h-10 object-cover rounded-lg" />
                 </td>
