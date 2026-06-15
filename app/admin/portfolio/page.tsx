@@ -284,6 +284,7 @@ export default function AdminPortfolioPage() {
           </span>
           <div className="flex items-center gap-6">
             <Link href="/admin" className="text-sm transition-opacity hover:opacity-70" style={{ color: '#7C9A7E' }}>Submissions</Link>
+            <Link href="/admin/gift-cards" className="text-sm transition-opacity hover:opacity-70" style={{ color: '#7C9A7E' }}>Gift cards</Link>
             <Link href="/" className="text-sm transition-opacity hover:opacity-70" style={{ color: '#7C9A7E' }}>View site</Link>
           </div>
         </div>

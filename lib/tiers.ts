@@ -71,3 +71,37 @@ export function getTier(id: string | null | undefined): Tier | null {
   if (!id) return null
   return (TIERS as Record<string, Tier>)[id] ?? null
 }
+
+export interface TierStripeIds {
+  productId: string
+  priceId: string
+}
+
+export function getTierStripeIds(tier: Tier): TierStripeIds {
+  const key = tier.id.toUpperCase()
+  const productId = process.env[`STRIPE_PRODUCT_${key}_ID`]
+  const priceId = process.env[`STRIPE_PRICE_${key}_ID`]
+  if (!productId || !priceId) {
+    throw new Error(
+      `Stripe IDs for tier "${tier.id}" are not configured. Run \`npm run stripe:sync\` and paste the output into your environment.`
+    )
+  }
+  return { productId, priceId }
+}
+
+export interface GiftCardStripeIds {
+  productId: string
+  priceId: string
+}
+
+export function getGiftCardStripeIds(tier: Tier): GiftCardStripeIds {
+  const key = tier.id.toUpperCase()
+  const productId = process.env[`STRIPE_PRODUCT_GIFT_${key}_ID`]
+  const priceId = process.env[`STRIPE_PRICE_GIFT_${key}_ID`]
+  if (!productId || !priceId) {
+    throw new Error(
+      `Stripe gift card IDs for tier "${tier.id}" are not configured. Run \`npm run stripe:sync\` and paste the output into your environment.`
+    )
+  }
+  return { productId, priceId }
+}

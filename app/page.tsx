@@ -184,6 +184,16 @@ export default async function HomePage() {
             )
           })}
         </div>
+        <p className="text-center text-sm mt-10" style={{ color: '#5A5A5A' }}>
+          Designing for someone else?{' '}
+          <Link
+            href="/gift"
+            className="transition-opacity hover:opacity-70"
+            style={{ color: '#7C9A7E' }}
+          >
+            Buy a gift card →
+          </Link>
+        </p>
       </section>
 
       {/* Divider */}

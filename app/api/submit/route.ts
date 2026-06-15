@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { getStripe } from '@/lib/stripe'
-import { getTier } from '@/lib/tiers'
+import { getTier, getTierStripeIds } from '@/lib/tiers'
+import { validatePromoCodeById } from '@/lib/stripe-promo'
+import type Stripe from 'stripe'
 
 export async function POST(request: Request) {
   try {
@@ -30,6 +32,7 @@ async function handleSubmit(request: Request) {
   const comments = (formData.get('comments') as string)?.trim() || null
   const photo = formData.get('photo') as File | null
   const tierId = (formData.get('tier') as string)?.trim()
+  const promotionCodeId = (formData.get('promotion_code_id') as string)?.trim() || null
 
   if (!name || !email || !location || !photo) {
     return Response.json({ error: 'Name, email, location and photo are required.' }, { status: 400 })
@@ -55,6 +58,14 @@ async function handleSubmit(request: Request) {
 
   if (!process.env.STRIPE_SECRET_KEY) {
     return Response.json({ error: 'Server not configured: missing Stripe credentials.' }, { status: 500 })
+  }
+
+  let promo: Awaited<ReturnType<typeof validatePromoCodeById>> | null = null
+  if (promotionCodeId) {
+    promo = await validatePromoCodeById(promotionCodeId, tier)
+    if (!promo.valid) {
+      return Response.json({ error: promo.error }, { status: 400 })
+    }
   }
 
   const supabase = createSupabaseServerClient()
@@ -91,6 +102,8 @@ async function handleSubmit(request: Request) {
       payment_status: 'pending',
       tier: tier.id,
       price_pence: tier.pricePence,
+      promotion_code_id: promo?.valid ? promo.promotionCodeId : null,
+      discount_pence: promo?.valid ? promo.discountPence : 0,
     })
     .select('id')
     .single()
@@ -103,27 +116,25 @@ async function handleSubmit(request: Request) {
   // Create Stripe Checkout session
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'
 
-  const session = await getStripe().checkout.sessions.create({
+  const stripeIds = getTierStripeIds(tier)
+
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: ['card'],
-    line_items: [
-      {
-        price_data: {
-          currency: 'gbp',
-          product_data: {
-            name: tier.stripeProductName,
-            description: tier.stripeProductDescription,
-          },
-          unit_amount: tier.pricePence,
-        },
-        quantity: 1,
-      },
-    ],
+    line_items: [{ price: stripeIds.priceId, quantity: 1 }],
     mode: 'payment',
     customer_email: email,
     metadata: { submission_id: submission.id, tier: tier.id },
     success_url: `${baseUrl}/success`,
     cancel_url: `${baseUrl}/submit`,
-  })
+  }
+
+  if (promo?.valid) {
+    sessionParams.discounts = [{ promotion_code: promo.promotionCodeId }]
+  } else {
+    sessionParams.allow_promotion_codes = true
+  }
+
+  const session = await getStripe().checkout.sessions.create(sessionParams)
 
   await supabase
     .from('submissions')

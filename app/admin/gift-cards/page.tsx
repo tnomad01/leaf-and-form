@@ -1,30 +1,30 @@
-import { createSupabaseServerClient } from '@/lib/supabase'
-import AdminTable, { Submission } from '@/components/AdminTable'
 import Link from 'next/link'
+import { createSupabaseServerClient } from '@/lib/supabase'
+import GiftCardAdminTable from '@/components/GiftCardAdminTable'
+import type { GiftCardRow } from '@/lib/gift-cards'
 
 export const metadata = {
-  title: 'Admin — Leaf & Form',
+  title: 'Gift Cards — Leaf & Form Admin',
 }
 
 export const dynamic = 'force-dynamic'
 
-async function getSubmissions(): Promise<Submission[]> {
+async function getGiftCards(): Promise<GiftCardRow[]> {
   const supabase = createSupabaseServerClient()
   const { data, error } = await supabase
-    .from('submissions')
+    .from('gift_cards')
     .select('*')
-    .eq('payment_status', 'paid')
-    .order('created_at', { ascending: false })
+    .order('purchased_at', { ascending: false })
 
   if (error) {
-    console.error('Failed to fetch submissions:', error)
+    console.error('Failed to fetch gift cards:', error)
     return []
   }
-  return data as Submission[]
+  return (data ?? []) as GiftCardRow[]
 }
 
-export default async function AdminPage() {
-  const submissions = await getSubmissions()
+export default async function AdminGiftCardsPage() {
+  const giftCards = await getGiftCards()
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F7F4EE' }}>
@@ -41,21 +41,21 @@ export default async function AdminPage() {
           </span>
           <div className="flex items-center gap-6">
             <span className="text-sm" style={{ color: '#9A9A8A' }}>
-              {submissions.length} paid {submissions.length === 1 ? 'submission' : 'submissions'}
+              {giftCards.length} gift {giftCards.length === 1 ? 'card' : 'cards'}
             </span>
+            <Link
+              href="/admin"
+              className="text-sm transition-opacity hover:opacity-70"
+              style={{ color: '#7C9A7E' }}
+            >
+              Submissions
+            </Link>
             <Link
               href="/admin/portfolio"
               className="text-sm transition-opacity hover:opacity-70"
               style={{ color: '#7C9A7E' }}
             >
               Portfolio
-            </Link>
-            <Link
-              href="/admin/gift-cards"
-              className="text-sm transition-opacity hover:opacity-70"
-              style={{ color: '#7C9A7E' }}
-            >
-              Gift cards
             </Link>
             <Link
               href="/"
@@ -73,9 +73,9 @@ export default async function AdminPage() {
           className="text-3xl mb-8"
           style={{ fontFamily: 'var(--font-playfair)', color: '#2C2C2C' }}
         >
-          Submissions
+          Gift Cards
         </h1>
-        <AdminTable submissions={submissions} />
+        <GiftCardAdminTable giftCards={giftCards} />
       </main>
     </div>
   )

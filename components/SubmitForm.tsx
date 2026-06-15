@@ -1,10 +1,20 @@
 'use client'
 
-import { useRef, useState, DragEvent, ChangeEvent } from 'react'
+import { useRef, useState, useEffect, DragEvent, ChangeEvent } from 'react'
 import Link from 'next/link'
 import { TIERS, TIER_ORDER, DEFAULT_TIER, type TierId } from '@/lib/tiers'
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024 // 20 MB
+
+interface AppliedPromo {
+  promotionCodeId: string
+  code: string
+  discountPence: number
+  newTotalPence: number
+  label: string
+}
+
+type PromoStatus = 'idle' | 'checking' | 'valid' | 'invalid'
 
 export default function SubmitForm() {
   const formRef = useRef<HTMLFormElement>(null)
@@ -15,6 +25,64 @@ export default function SubmitForm() {
   const [error, setError] = useState<string | null>(null)
   const [tierId, setTierId] = useState<TierId>(DEFAULT_TIER)
   const tier = TIERS[tierId]
+
+  const [promoInput, setPromoInput] = useState('')
+  const [promoStatus, setPromoStatus] = useState<PromoStatus>('idle')
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null)
+  const [promoError, setPromoError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const code = promoInput.trim()
+    if (!code) {
+      setPromoStatus('idle')
+      setAppliedPromo(null)
+      setPromoError(null)
+      return
+    }
+
+    setPromoStatus('checking')
+    setPromoError(null)
+    const ctrl = new AbortController()
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/validate-promo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, tier: tierId }),
+          signal: ctrl.signal,
+        })
+        const json = await res.json()
+        if (json.valid) {
+          setAppliedPromo({
+            promotionCodeId: json.promotionCodeId,
+            code: json.code,
+            discountPence: json.discountPence,
+            newTotalPence: json.newTotalPence,
+            label: json.label,
+          })
+          setPromoStatus('valid')
+          setPromoError(null)
+        } else {
+          setAppliedPromo(null)
+          setPromoStatus('invalid')
+          setPromoError(json.error ?? 'Code not valid.')
+        }
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return
+        setAppliedPromo(null)
+        setPromoStatus('invalid')
+        setPromoError('Unable to check that code right now.')
+      }
+    }, 400)
+
+    return () => {
+      ctrl.abort()
+      clearTimeout(timer)
+    }
+  }, [promoInput, tierId])
+
+  const totalPence = appliedPromo?.newTotalPence ?? tier.pricePence
+  const totalLabel = `£${(totalPence / 100).toFixed(totalPence % 100 === 0 ? 0 : 2)}`
 
   function handleFile(f: File) {
     if (!f.type.startsWith('image/')) {
@@ -54,6 +122,9 @@ export default function SubmitForm() {
     const data = new FormData(form)
     data.set('photo', file, file.name)
     data.set('tier', tierId)
+    if (appliedPromo) {
+      data.set('promotion_code_id', appliedPromo.promotionCodeId)
+    }
 
     setSubmitting(true)
     try {
@@ -145,6 +216,58 @@ export default function SubmitForm() {
                 )
               })}
             </div>
+          </div>
+
+          {/* Discount code */}
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: '#2C2C2C' }}>
+              Discount code
+              <span className="ml-2 font-normal" style={{ color: '#9A9A8A', fontSize: '0.8rem' }}>
+                Optional
+              </span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={promoInput}
+                onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                placeholder="e.g. WELCOME10"
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                className="input-field"
+                style={{
+                  borderColor:
+                    promoStatus === 'valid' ? '#7C9A7E' : promoStatus === 'invalid' ? '#D97777' : '#C9B99A',
+                  paddingRight: '6rem',
+                }}
+              />
+              {promoStatus !== 'idle' && (
+                <span
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor:
+                      promoStatus === 'valid' ? '#D4E5D4' : promoStatus === 'invalid' ? '#FEE2E2' : '#EDE9E1',
+                    color:
+                      promoStatus === 'valid' ? '#2D5A2D' : promoStatus === 'invalid' ? '#991B1B' : '#9A9A8A',
+                  }}
+                >
+                  {promoStatus === 'checking' && 'Checking…'}
+                  {promoStatus === 'valid' && '✓ Applied'}
+                  {promoStatus === 'invalid' && 'Invalid'}
+                </span>
+              )}
+            </div>
+            {promoStatus === 'valid' && appliedPromo && (
+              <p className="text-xs mt-2" style={{ color: '#2D5A2D' }}>
+                {appliedPromo.label} — new total <strong>{totalLabel}</strong>
+              </p>
+            )}
+            {promoStatus === 'invalid' && promoError && (
+              <p className="text-xs mt-2" style={{ color: '#991B1B' }}>
+                {promoError}
+              </p>
+            )}
           </div>
 
           {/* Name + Email */}
@@ -279,7 +402,7 @@ export default function SubmitForm() {
               className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-medium transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: '#2C2C2C', color: '#F7F4EE' }}
             >
-              {submitting ? 'Redirecting…' : `Submit & Pay ${tier.priceLabel}`}
+              {submitting ? 'Redirecting…' : `Submit & Pay ${totalLabel}`}
               {!submitting && <span aria-hidden>→</span>}
             </button>
           </div>

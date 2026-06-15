@@ -44,12 +44,17 @@ create table submissions (
 
 1. Create an account at https://stripe.com
 2. Copy your **Secret key** and **Publishable key** into `.env.local`.
-3. For local webhook testing:
+3. Seed the three tier Products + Prices in Stripe:
+   ```bash
+   npm run stripe:sync
+   ```
+   The script is idempotent — re-run it anytime tier prices or names change in `lib/tiers.ts`. It prints an env block; paste the six `STRIPE_PRODUCT_*_ID` / `STRIPE_PRICE_*_ID` values into `.env.local`. Run it again with a `sk_live_...` key to seed production, then paste those IDs into your Vercel env.
+4. For local webhook testing:
    ```bash
    stripe listen --forward-to localhost:3000/api/webhook
    ```
    Copy the `whsec_...` signing secret it shows you into `STRIPE_WEBHOOK_SECRET`.
-4. For production, register a webhook in the Stripe dashboard pointing to `https://your-domain.com/api/webhook`, listening for `checkout.session.completed`.
+5. For production, register a webhook in the Stripe dashboard pointing to `https://your-domain.com/api/webhook`, listening for `checkout.session.completed`.
 
 ### 3. Admin access
 
