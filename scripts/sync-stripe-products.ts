@@ -18,7 +18,7 @@ async function main() {
   }
 
   const stripe = new Stripe(secret, { apiVersion: '2026-04-22.dahlia' })
-  const mode = secret.startsWith('sk_live_') ? 'LIVE' : 'test'
+  const mode = /_live_/.test(secret) ? 'LIVE' : 'test'
 
   console.log(`Syncing Leaf & Form products to Stripe (${mode} mode)…\n`)
 
