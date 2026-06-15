@@ -37,9 +37,9 @@ async function handleSubmit(request: Request) {
     return Response.json({ error: 'Photo must be an image file.' }, { status: 400 })
   }
 
-  const maxBytes = 5 * 1024 * 1024
+  const maxBytes = 20 * 1024 * 1024
   if (photo.size > maxBytes) {
-    return Response.json({ error: 'Photo must be under 5 MB.' }, { status: 400 })
+    return Response.json({ error: 'Photo must be under 20 MB.' }, { status: 400 })
   }
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {

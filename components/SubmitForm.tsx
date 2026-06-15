@@ -3,7 +3,7 @@
 import { useRef, useState, DragEvent, ChangeEvent } from 'react'
 import Link from 'next/link'
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5 MB
+const MAX_FILE_BYTES = 20 * 1024 * 1024 // 20 MB
 
 export default function SubmitForm() {
   const formRef = useRef<HTMLFormElement>(null)
@@ -19,7 +19,7 @@ export default function SubmitForm() {
       return
     }
     if (f.size > MAX_FILE_BYTES) {
-      setError('Photo must be under 5 MB.')
+      setError('Photo must be under 20 MB.')
       return
     }
     setError(null)
@@ -172,7 +172,7 @@ export default function SubmitForm() {
                     Drag &amp; drop your photo here
                   </p>
                   <p className="text-xs" style={{ color: '#9A9A8A' }}>
-                    or click to browse · JPEG, PNG, WebP · max 5 MB
+                    or click to browse · JPEG, PNG, WebP, HEIC · max 20 MB
                   </p>
                 </div>
               )}
