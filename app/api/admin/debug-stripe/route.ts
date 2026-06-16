@@ -11,10 +11,10 @@ export async function GET() {
 
   try {
     const stripe = getStripe()
-    const account = await stripe.accounts.retrieve()
-    out.account = { id: account.id, email: account.email, country: account.country }
+    const balance = await stripe.balance.retrieve()
+    out.balanceLivemode = balance.livemode
   } catch (err) {
-    out.accountError = err instanceof Error ? err.message : String(err)
+    out.balanceError = err instanceof Error ? err.message : String(err)
   }
 
   if (giftPrice) {
